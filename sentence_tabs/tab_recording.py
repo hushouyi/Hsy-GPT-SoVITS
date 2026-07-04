@@ -111,7 +111,13 @@ def create_recording_tab():
             has = entry and entry.wav_path and os.path.exists(
                 os.path.join(ProjectManager.get_project_dir(AppState.get_current_project()), entry.wav_path))
             conf = entry and entry.confirmed and has
-            is_rec = _recorder.is_recording and _recorder.current_save_path and str(s.idx) in _recorder.current_save_path
+            import re
+            rec_idx = -1
+            if _recorder.current_save_path:
+                m = re.search(r'_i(\d+)_', _recorder.current_save_path)
+                if m:
+                    rec_idx = int(m.group(1))
+            is_rec = _recorder.is_recording and s.idx == rec_idx
 
             if is_rec:
                 rows.append(("🔴", "#FFF0F0", "停止", True, True, True, "stop"))
