@@ -126,14 +126,17 @@ def create_recording_tab():
 
     # ==================== Build UI ====================
 
-    with gr.Column() as rec_tab:
+    with gr.Column(elem_id="recording-tab") as rec_tab:
         # ─── Project Bar ───
+        # Row 1: label + buttons
         with gr.Row():
-            project_dropdown = gr.Dropdown(choices=[], label="项目", scale=3)
-            btn_new_project = gr.Button("＋", size="sm", scale=0)
+            gr.HTML('<span style="font-size:14px;"><b>项目</b></span>', elem_classes="project-label")
+            btn_new_project = gr.Button("新建", size="sm", scale=0)
+            btn_delete_project = gr.Button("删除", size="sm", scale=0, variant="stop")
             btn_lock_project = gr.Button("🔓", size="sm", scale=0)
-            btn_delete_project = gr.Button("✕", size="sm", scale=0, variant="stop")
             btn_refresh_projects = gr.Button("↻", size="sm", scale=0)
+        # Row 2: dropdown
+        project_dropdown = gr.Dropdown(choices=[], label=None, show_label=False, scale=3)
 
         gr.Markdown("---")
 
@@ -162,12 +165,12 @@ def create_recording_tab():
             btn_dels.append(bdel)
 
         gr.Markdown("---")
-        page_display = gr.HTML(value="<b>第 1/16 页</b>")
         with gr.Row(elem_classes="pagination-wrap"):
-            btn_prev = gr.Button("◀ 上一页", scale=0, size="sm")
-            jump_input = gr.Number(value=1, label="", minimum=1, maximum=99, scale=0, elem_classes="page-jump")
+            page_display = gr.HTML(value="<b>第 1/16 页</b>")
+            jump_input = gr.Number(value=1, label=None, show_label=False, minimum=1, maximum=99, scale=0, elem_classes="page-jump")
             btn_jump = gr.Button("跳转", scale=0, size="sm")
-            btn_next = gr.Button("下一页 ▶", scale=0, size="sm")
+            btn_prev = gr.Button("上一页", scale=0, size="sm")
+            btn_next = gr.Button("下一页", scale=0, size="sm")
         category_check = gr.Markdown("")
         btn_done = gr.Button("❌ 完成录制（每类需≥5条）",
                             variant="primary", interactive=False, size="lg")

@@ -166,18 +166,93 @@ def create_app():
         theme=gr.themes.Soft(),
         analytics_enabled=False,
         css="""
-        /* Compact pagination bar — override Gradio flex defaults */
-        .pagination-wrap { display:flex !important; align-items:center !important; gap:4px !important; }
-        .pagination-wrap .gr-box { flex:0 0 auto !important; min-width:auto !important; }
-        .page-num { flex:0 0 auto !important; text-align:center !important; font-size:14px !important; min-width:80px !important; padding:0 4px !important; }
-        .page-jump { flex:0 0 auto !important; width:55px !important; }
-        /* Sentence rows — compact text */
-        .sentence-cell { flex:1 1 auto !important; min-width:0 !important; overflow:hidden !important; }
+        /* ===== Centered pagination row ===== */
+        .pagination-wrap { justify-content:center !important; align-items:center !important; gap:6px !important; }
+        .pagination-wrap > * { flex:0 0 auto !important; min-width:0 !important; width:auto !important; }
+        .pagination-wrap button {
+            height:28px !important; min-height:28px !important;
+            line-height:28px !important; padding:0 8px !important;
+            font-size:13px !important;
+        }
+
+        /* ===== Jump input: completely flatten the container ===== */
+        .page-jump {
+            width:55px !important; min-width:55px !important; max-width:55px !important;
+            flex:0 0 55px !important;
+            padding:0 !important; margin:0 !important;
+        }
+        .page-jump > div,
+        .page-jump .form {
+            padding:0 !important; margin:0 !important; gap:0 !important;
+            border:none !important; box-shadow:none !important;
+            background:transparent !important;
+        }
+        .page-jump .gr-box,
+        .page-jump .gr-input {
+            padding:0 !important; margin:0 !important;
+            height:28px !important; min-height:28px !important;
+            width:100% !important; min-width:0 !important;
+            border:none !important; box-shadow:none !important;
+            background:transparent !important;
+        }
+        .page-jump input {
+            height:26px !important; min-height:26px !important;
+            padding:0 4px !important; margin:0 !important;
+            text-align:center !important; font-size:13px !important;
+            border:1px solid #ccc !important;
+            border-radius:4px !important;
+            box-shadow:none !important;
+            width:100% !important; box-sizing:border-box !important;
+        }
+
+        /* ===== Project label: don't stretch ===== */
+        .project-label { flex:0 0 auto !important; min-width:0 !important; width:auto !important; }
+
+        /* ===== Recording tab: compact everything ===== */
+        #recording-tab button {
+            height:28px !important; min-height:28px !important;
+            padding:0 6px !important; line-height:28px !important;
+            font-size:12px !important;
+        }
+        #recording-tab .gr-dropdown {
+            min-height:28px !important;
+        }
+        #recording-tab .gr-dropdown .gr-box {
+            height:28px !important; min-height:28px !important;
+        }
+        #recording-tab .gr-dropdown .form {
+            padding:0 !important; margin:0 !important; gap:0 !important;
+        }
+        #recording-tab .gr-dropdown .gr-box {
+            padding:0 4px !important; margin:0 !important;
+            min-height:28px !important; height:28px !important;
+            border:1px solid #ccc !important; border-radius:4px !important;
+        }
+        #recording-tab .gr-dropdown input {
+            height:26px !important; min-height:26px !important;
+            font-size:13px !important; padding:0 4px !important;
+        }
+        #recording-tab .gr-dropdown input {
+            height:26px !important; min-height:26px !important;
+            font-size:13px !important;
+        }
+        #recording-tab .gr-form {
+            gap:2px !important;
+        }
         """
     ) as app:
 
         # ─── Global Status Bar (at top, below title but above tabs) ───
         status_bar = gr.HTML(value=get_status_html())
+
+        # ─── Browser close → /quit beacon ───
+        gr.HTML('''
+        <script>
+        window.addEventListener("beforeunload", function() {
+            navigator.sendBeacon("http://127.0.0.1:17860/quit");
+        });
+        </script>
+        ''')
 
         # ─── Main Tabs ───
         with gr.Tabs() as main_tabs:
