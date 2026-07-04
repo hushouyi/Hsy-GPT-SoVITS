@@ -39,7 +39,7 @@ def create_recording_tab():
         _mapping_mgr.load(mapping_path)
 
     def get_stats(page: int) -> tuple:
-        """Return (progress_html, page_header, page_stats_text, category_check, is_all_met)."""
+        """Return (progress_html, page_header, _, category_check, is_all_met)."""
         pg = _script_reader.get_page(page, PAGE_SIZE)
         if not pg:
             return "", "### No data", "", "", False
@@ -63,14 +63,14 @@ def create_recording_tab():
             cat_lines.append(f"{c.name[:6]} {cnt}/{c.total} {'✅' if met else '❌'}")
 
         prog_html = f"""<div style="padding:6px;background:#f5f5f5;border-radius:6px;border:1px solid #ddd;font-size:12px;">
-<div><b>Overall:</b> {recorded_total}/{total} ({pct}%)</div>
+<div><b>总体：</b> {recorded_total}/{total} ({pct}%)</div>
 <div style="background:#e0e0e0;height:12px;border-radius:6px;margin:2px 0 6px 0;">
 <div style="background:linear-gradient(90deg,#4CAF50,#81C784);width:{pct}%;height:12px;border-radius:6px;"></div></div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;">{"".join(f"<div>{l}</div>" for l in cat_lines)}</div></div>"""
+<div style="display:flex;flex-wrap:wrap;gap:2px;">{"".join(f'<div style="flex:0 0 auto;min-width:80px;">{l}</div>' for l in cat_lines)}</div></div>"""
 
-        header = f"### Page {pg.page}/{pg.total_pages}  |  {pg.category[:30] if pg.category else ''}"
-        stats_text = f"**{pg.page}/{pg.total_pages}**  |  **{len(pg.sentences)} sentences this page**"
-        ck_text = "✅ All categories meet requirements!" if all_met else "❌ Some categories need more recordings (>=5 each)"
+        header = f"### 第 {pg.page}/{pg.total_pages} 页 | {pg.category[:30] if pg.category else ''}"
+        stats_text = f"**第 {pg.page} 页**  |  **共 {len(pg.sentences)} 句**"
+        ck_text = "✅ 全部达标，可以训练！" if all_met else "❌ 有类别未达标（每类需≥5条）"
         return prog_html, header, stats_text, ck_text, all_met
 
     def get_sentence_texts(page: int) -> List[str]:
@@ -100,10 +100,10 @@ def create_recording_tab():
         return indices
 
     def get_row_states(page: int) -> List[tuple]:
-        """Return list of (dot, bg_color, rec_text, play_disabled, del_disabled, play_var) for 10 rows."""
+        """Return list of (dot, bg_color, rec_text, rec_disabled, play_disabled, del_disabled, variant) for 10 rows."""
         pg = _script_reader.get_page(page, PAGE_SIZE)
         if not pg:
-            return [("", "", "", True, True, "secondary")] * 10
+            return [("", "", "", True, True, True, "secondary")] * 10
         mapping = _mapping_mgr.get_all()
         rows = []
         for s in pg.sentences:
@@ -114,14 +114,14 @@ def create_recording_tab():
             is_rec = _recorder.is_recording and _recorder.current_save_path and str(s.idx) in _recorder.current_save_path
 
             if is_rec:
-                rows.append(("🔴", "#FFF0F0", "STOP", True, True, "stop"))
+                rows.append(("🔴", "#FFF0F0", "停止", True, True, True, "stop"))
             elif has and conf:
-                rows.append(("🟢", "#F0FFF0", "REC", False, False, "secondary"))
+                rows.append(("🟢", "#F0FFF0", "录音", False, False, False, "secondary"))
             else:
-                rows.append(("⚪", "", "REC", True, True, "secondary"))
+                rows.append(("⚪", "", "录音", False, True, True, "secondary"))
 
         while len(rows) < 10:
-            rows.append(("", "", "REC", True, True, "secondary"))
+            rows.append(("", "", "录音", True, True, True, "secondary"))
         return rows
 
     # ==================== Build UI ====================
@@ -129,54 +129,47 @@ def create_recording_tab():
     with gr.Column() as rec_tab:
         # ─── Project Bar ───
         with gr.Row():
-            project_dropdown = gr.Dropdown(choices=[], label="Project", scale=3)
+            project_dropdown = gr.Dropdown(choices=[], label="项目", scale=3)
             btn_refresh_projects = gr.Button("\U0001f504", size="sm", scale=0)
-            btn_new_project = gr.Button("New", size="sm", scale=0)
-            btn_import_project = gr.Button("Import", size="sm", scale=0)
-            btn_delete_project = gr.Button("Del", size="sm", scale=0, variant="stop")
+            btn_new_project = gr.Button("新建", size="sm", scale=0)
+            btn_delete_project = gr.Button("删除", size="sm", scale=0, variant="stop")
             btn_lock_project = gr.Button("\U0001f513", size="sm", scale=0)
 
         gr.Markdown("---")
 
         # ─── Progress ───
-        progress_html = gr.HTML(value="<div>Loading...</div>")
-        page_header = gr.Markdown("### Loading...")
-        sentence_texts = [gr.Markdown("", visible=False) for _ in range(10)]
+        progress_html = gr.HTML(value="<div>加载中...</div>")
+        page_header = gr.Markdown("### 加载中...")
 
         # Store current page number
         current_page = gr.State(value=1)
 
         # ─── 10 sentence rows with individual buttons ───
-        row_dots = []
-        row_labels = []
+        row_cells = []
         btn_recs = []
         btn_plays = []
         btn_dels = []
 
         for i in range(10):
             with gr.Row() as row:
-                dot = gr.HTML(value="⚪")
-                label = gr.Markdown(value="")
-                brec = gr.Button("REC", size="sm", elem_id=f"rec_{i}")
-                bplay = gr.Button("PLAY", size="sm", elem_id=f"play_{i}")
-                bdel = gr.Button("DEL", size="sm", elem_id=f"del_{i}")
-            row_dots.append(dot)
-            row_labels.append(label)
+                cell = gr.HTML(value="")  # combined dot + label as HTML
+                brec = gr.Button("录音", size="sm", scale=0, elem_id=f"rec_{i}")
+                bplay = gr.Button("播放", size="sm", scale=0, elem_id=f"play_{i}")
+                bdel = gr.Button("删除", size="sm", scale=0, elem_id=f"del_{i}")
+            row_cells.append(cell)
             btn_recs.append(brec)
             btn_plays.append(bplay)
             btn_dels.append(bdel)
 
         gr.Markdown("---")
-        with gr.Row():
-            page_stats = gr.Markdown("**1/1**")
-            btn_prev = gr.Button("◀ Prev", scale=0, size="sm")
-            page_display = gr.Markdown("**Page 1**")
-            btn_next = gr.Button("Next ▶", scale=0, size="sm")
-        with gr.Row():
-            jump_input = gr.Number(value=1, label="Jump to page", minimum=1, maximum=99, scale=1)
-            btn_jump = gr.Button("Go", scale=0, size="sm")
+        with gr.Row(elem_classes="pagination-wrap"):
+            btn_prev = gr.Button("◀ 上一页", scale=0, size="sm")
+            page_display = gr.HTML(value="<b>第 1/16 页</b>", elem_classes="page-num")
+            jump_input = gr.Number(value=1, label="", minimum=1, maximum=99, scale=0, elem_classes="page-jump")
+            btn_jump = gr.Button("跳转", scale=0, size="sm")
+            btn_next = gr.Button("下一页 ▶", scale=0, size="sm")
         category_check = gr.Markdown("")
-        btn_done = gr.Button("Complete Recording (needs >=5 per category)",
+        btn_done = gr.Button("❌ 完成录制（每类需≥5条）",
                             variant="primary", interactive=False, size="lg")
 
     # ==================== Project helpers ====================
@@ -214,58 +207,57 @@ def create_recording_tab():
         prepend get_project_ui_state() + [page] before these."""
         pg = _script_reader.get_page(page, PAGE_SIZE)
         if not pg:
-            return [gr.update()] * (3 + 10*5 + 3)
+            return [gr.update()] * (2 + 10*4 + 3)
 
-        prog, hdr, stats, ck, all_met = get_stats(page)
+        prog, hdr, _, ck, all_met = get_stats(page)
         states = get_row_states(page)
         texts = get_sentence_texts(page)
         indices = get_sentence_indices(page)
         total_p = pg.total_pages
 
         outputs = []
-        # progress_html, page_header, page_stats
-        outputs.extend([prog, hdr, stats])
+        # progress_html, page_header
+        outputs.extend([prog, hdr])
 
-        # 10 rows: dot, label, rec_btn, play_btn, del_btn
+        # 10 rows: combined_cell(dot+text), rec_btn, play_btn, del_btn
         for i in range(10):
             idx = indices[i]
             is_valid = idx > 0 and i < len(pg.sentences)
             if is_valid:
                 dot_val = states[i][0]
                 bg = states[i][1] if states[i][1] else "transparent"
-                label_val = f"**#{idx}** {texts[i]}"
+                label_val = f"#{idx} {texts[i]}"
                 rec_text = states[i][2]
-                play_dis = states[i][3]
-                del_dis = states[i][4]
-                play_var = states[i][5]
+                rec_dis = states[i][3]
+                play_dis = states[i][4]
+                del_dis = states[i][5]
+                play_var = states[i][6] if len(states[i]) > 6 else "secondary"
             else:
                 dot_val = ""
                 bg = "transparent"
                 label_val = ""
-                rec_text = "REC"
+                rec_text = "录音"
+                rec_dis = True
                 play_dis = True
                 del_dis = True
                 play_var = "secondary"
 
-            dot_html = f'<span style="font-size:16px;">{dot_val}</span>'
-            label_style = f"background:{bg};padding:2px 6px;border-radius:4px;margin:1px 0;"
-            label_md = f'<div style="{label_style}">{label_val}</div>'
+            cell_html = f'<span style="display:inline-flex;align-items:center;gap:4px;"><span style="font-size:16px;">{dot_val}</span><span style="background:{bg};padding:1px 4px;border-radius:3px;font-size:13px;">{label_val}</span></span>'
 
             outputs.extend([
-                dot_html,
-                label_md,
-                gr.update(value=rec_text, variant=play_var, interactive=not play_dis),
+                cell_html,
+                gr.update(value=rec_text, variant=play_var, interactive=not rec_dis),
                 gr.update(interactive=not play_dis),
                 gr.update(interactive=not del_dis),
             ])
 
         # Pagination + check + done button
         outputs.extend([
-            f"**Page {page}/{total_p}**",
+            f"<b>第 {page}/{total_p} 页</b>",
             ck,
             gr.update(
-                value="✅ Complete Recording → Start Training" if all_met
-                      else "Complete Recording (needs >=5 per category)",
+                value="✅ 完成录制 → 开始训练" if all_met
+                      else "❌ 完成录制（每类需≥5条）",
                 interactive=all_met,
                 variant="primary" if all_met else "secondary"
             ),
@@ -414,12 +406,11 @@ def create_recording_tab():
     # ==================== Wire events ====================
 
     project_outs = [project_dropdown, btn_lock_project]
-    partial_out = [current_page, progress_html, page_header, page_stats]
+    partial_out = [current_page, progress_html, page_header]
 
     row_out = []
     for i in range(10):
-        row_out.append(row_dots[i])
-        row_out.append(row_labels[i])
+        row_out.append(row_cells[i])
         row_out.append(btn_recs[i])
         row_out.append(btn_plays[i])
         row_out.append(btn_dels[i])
@@ -448,7 +439,6 @@ def create_recording_tab():
     return {
         "progress_html": progress_html,
         "page_header": page_header,
-        "page_stats": page_stats,
         "current_page": current_page,
         "project_dropdown": project_dropdown,
         "btn_lock_project": btn_lock_project,

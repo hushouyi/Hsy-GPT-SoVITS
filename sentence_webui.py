@@ -165,6 +165,15 @@ def create_app():
         title="GPT-SoVITS Recording + Training WebUI",
         theme=gr.themes.Soft(),
         analytics_enabled=False,
+        css="""
+        /* Compact pagination bar — override Gradio flex defaults */
+        .pagination-wrap { display:flex !important; align-items:center !important; gap:4px !important; }
+        .pagination-wrap .gr-box { flex:0 0 auto !important; min-width:auto !important; }
+        .page-num { flex:0 0 auto !important; text-align:center !important; font-size:14px !important; min-width:80px !important; padding:0 4px !important; }
+        .page-jump { flex:0 0 auto !important; width:55px !important; }
+        /* Sentence rows — compact text */
+        .sentence-cell { flex:1 1 auto !important; min-width:0 !important; overflow:hidden !important; }
+        """
     ) as app:
 
         # ─── Global Status Bar (at top, below title but above tabs) ───
