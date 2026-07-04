@@ -130,10 +130,10 @@ def create_recording_tab():
         # ─── Project Bar ───
         with gr.Row():
             project_dropdown = gr.Dropdown(choices=[], label="项目", scale=3)
-            btn_refresh_projects = gr.Button("\U0001f504", size="sm", scale=0)
-            btn_new_project = gr.Button("新建", size="sm", scale=0)
-            btn_delete_project = gr.Button("删除", size="sm", scale=0, variant="stop")
-            btn_lock_project = gr.Button("\U0001f513", size="sm", scale=0)
+            btn_new_project = gr.Button("＋", size="sm", scale=0)
+            btn_lock_project = gr.Button("🔓", size="sm", scale=0)
+            btn_delete_project = gr.Button("✕", size="sm", scale=0, variant="stop")
+            btn_refresh_projects = gr.Button("↻", size="sm", scale=0)
 
         gr.Markdown("---")
 
@@ -162,9 +162,9 @@ def create_recording_tab():
             btn_dels.append(bdel)
 
         gr.Markdown("---")
+        page_display = gr.HTML(value="<b>第 1/16 页</b>")
         with gr.Row(elem_classes="pagination-wrap"):
             btn_prev = gr.Button("◀ 上一页", scale=0, size="sm")
-            page_display = gr.HTML(value="<b>第 1/16 页</b>", elem_classes="page-num")
             jump_input = gr.Number(value=1, label="", minimum=1, maximum=99, scale=0, elem_classes="page-jump")
             btn_jump = gr.Button("跳转", scale=0, size="sm")
             btn_next = gr.Button("下一页 ▶", scale=0, size="sm")
