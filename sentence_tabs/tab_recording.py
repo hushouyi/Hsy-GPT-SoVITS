@@ -120,11 +120,12 @@ def create_recording_tab():
             is_rec = _recorder.is_recording and s.idx == rec_idx
 
             if is_rec:
-                rows.append(("🔴", "#FFF0F0", "停止", True, True, True, "stop"))
+                # Recording row: STOP button must be clickable
+                rows.append(("🔴", "#FFF0F0", "停止", False, True, True, "stop"))
             elif has and conf:
-                rows.append(("🟢", "#F0FFF0", "录音", False, False, False, "secondary"))
+                rows.append(("🟢", "#F0FFF0", "录音", _recorder.is_recording, False, False, "secondary"))
             else:
-                rows.append(("⚪", "", "录音", False, True, True, "secondary"))
+                rows.append(("⚪", "", "录音", _recorder.is_recording, True, True, "secondary"))
 
         while len(rows) < 10:
             rows.append(("", "", "录音", True, True, True, "secondary"))
