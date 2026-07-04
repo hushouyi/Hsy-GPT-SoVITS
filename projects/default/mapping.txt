@@ -1,1 +1,3 @@
 idx|text|wav_path|confirmed|duration_sec|recorded_at
+1||recorded/p001_i01_20260704_205121.wav|yes|3.41|20260704_205124
+2|||no|0|0

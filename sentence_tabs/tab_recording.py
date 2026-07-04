@@ -237,11 +237,13 @@ def create_recording_tab():
         # progress_html, page_header
         outputs.extend([prog, hdr])
 
-        # Recording indicator
+        # Recording indicator with timer + level
         if _recorder.is_recording:
-            outputs.append('''<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#FFF0F0;border-radius:6px;border:1px solid #ffccc0;">
+            elapsed = time.time() - (_recorder._start_time or time.time())
+            dur_str = f"{int(elapsed//60):02d}:{int(elapsed%60):02d}"
+            outputs.append(f'''<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#FFF0F0;border-radius:6px;border:1px solid #ffccc0;">
 <span style="width:10px;height:10px;background:red;border-radius:50%;animation:recPulse 1s infinite;"></span>
-<span style="font-size:13px;color:#c00;"><b>录音中</b></span></div>''')
+<span style="font-size:13px;color:#c00;"><b>录音中 {dur_str}</b></span></div>''')
         else:
             outputs.append("")
 
@@ -315,6 +317,14 @@ def create_recording_tab():
             if AppState.get_training():
                 print("[WARN] Cannot record while training")
                 return get_project_ui_state() + [page] + refresh_page(page)
+            # Check for microphone
+            try:
+                devices = sd.query_devices()
+                if not any(d['max_input_channels'] > 0 for d in devices):
+                    print("[WARN] No microphone detected")
+                    return get_project_ui_state() + [page] + refresh_page(page)
+            except Exception as e:
+                print(f"[WARN] Mic check failed: {e}")
             proj = AppState.get_current_project()
             rec_dir = ProjectManager.get_recorded_dir(proj)
             os.makedirs(rec_dir, exist_ok=True)
@@ -329,7 +339,10 @@ def create_recording_tab():
                 _mapping_mgr.update(idx, MappingEntry(idx, txt, rel, True, 0, ts))
                 print(f"[OK] Recording started for #{idx}")
         result = get_project_ui_state() + [page] + refresh_page(page)
-        result[-1] = audio_path  # update recorded_audio
+        if audio_path is None and _recorder.is_recording:
+            result[-1] = gr.update(value=None)  # clear during recording
+        else:
+            result[-1] = audio_path  # set to recorded file path
         return result
 
     def play_wav(path: str):
@@ -370,7 +383,7 @@ def create_recording_tab():
         return result
 
     def on_del_click(row_idx: int, page: int) -> list:
-        """Handle delete button click."""
+        """Handle delete button click. Clears recorded audio and resets mapping."""
         indices = get_sentence_indices(page)
         if row_idx >= len(indices):
             return get_project_ui_state() + [page] + refresh_page(page)
@@ -388,7 +401,9 @@ def create_recording_tab():
                                       duration_sec=0, recorded_at="0")
             print(f"[OK] Cleared #{idx}")
         _mapping_mgr.auto_flush()
-        return get_project_ui_state() + [page] + refresh_page(page)
+        result = get_project_ui_state() + [page] + refresh_page(page)
+        result[-1] = gr.update(value=None)  # clear audio player
+        return result
 
     def go_prev(page: int) -> list:
         p = max(1, page - 1)
@@ -501,4 +516,6 @@ def create_recording_tab():
         "script_reader": _script_reader,
         "mapping_mgr": _mapping_mgr,
         "all_outputs": all_outputs,
+        "recording_indicator": recording_indicator,
+        "recorded_audio": recorded_audio,
     }

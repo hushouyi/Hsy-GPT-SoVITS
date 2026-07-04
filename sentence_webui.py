@@ -19,6 +19,7 @@ import sys
 import time
 import threading
 import webbrowser
+import numpy as np
 import gradio as gr
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -28,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sentence_recorder.state import AppState
 from sentence_recorder.project_manager import ProjectManager
 from sentence_recorder.model_utils import cleanup_all_ports, stop_inference_api
+from sentence_recorder.recorder import RecordingManager
 from sentence_tabs.tab_recording import create_recording_tab
 from sentence_tabs.tab_training import create_training_tab
 from sentence_tabs.tab_inference import create_inference_tab
@@ -312,6 +314,34 @@ def create_app():
             inputs=[],
             outputs=[train_sub_tabs]
         )
+
+        # ─── Periodic recording indicator update (timer + level) ───
+        def update_rec_indicator():
+            """Update recording indicator with live elapsed time and volume bar."""
+            rec = RecordingManager()
+            if not rec.is_recording:
+                return ""
+            elapsed = max(0, time.time() - (rec._start_time or time.time()))
+            dur = f"{int(elapsed//60):02d}:{int(elapsed%60):02d}"
+            # Simple volume level from recent audio
+            level_pct = 0
+            try:
+                if rec._audio_data:
+                    recent = np.concatenate(rec._audio_data[-5:])
+                    rms = np.sqrt(np.mean(recent.astype(float)**2))
+                    level_pct = min(100, int(rms / 5000 * 100))
+            except Exception:
+                pass
+            bar = '<div style="display:flex;gap:1px;align-items:end;height:14px;">'
+            for i in range(10):
+                on = i < (level_pct // 10)
+                bar += f'<div style="width:4px;height:{4+(i*1)}px;background:{"#f33" if on else "#ddd"};border-radius:1px;"></div>'
+            bar += '</div>'
+            return f'''<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:#FFF0F0;border-radius:6px;border:1px solid #ffccc0;">
+<span style="width:10px;height:10px;background:red;border-radius:50%;animation:recPulse 1s infinite;"></span>
+<span style="font-size:13px;color:#c00;"><b>{dur}</b></span>{bar}</div>'''
+
+        app.load(fn=update_rec_indicator, inputs=None, outputs=rec_components["recording_indicator"], every=1)
 
         # ─── Periodic progress updates for training ───
         def periodic_train_update():

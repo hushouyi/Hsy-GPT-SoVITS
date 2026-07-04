@@ -1,6 +1,6 @@
 # Hsy-GPT-SoVITS — 逐句录音 + 一键训练 WebUI
 
-**v1.0.4** — [GitHub](https://github.com/hushouyi/Hsy-GPT-SoVITS)
+**v1.1.0** — [GitHub](https://github.com/hushouyi/Hsy-GPT-SoVITS)
 
 基于 GPT-SoVITS v2Pro 的定制 Web 界面，支持**逐句录音**、**一键训练**、**零样本/少样本 TTS 推理**。
 
