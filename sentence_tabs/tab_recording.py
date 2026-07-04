@@ -7,7 +7,11 @@ All components are generated at build time for maximum Gradio compatibility.
 
 import os
 import time
+import threading
+import wave
+import numpy as np
 import gradio as gr
+import sounddevice as sd
 from functools import partial
 from typing import List, Optional
 
@@ -154,6 +158,10 @@ def create_recording_tab():
         # Store current page number
         current_page = gr.State(value=1)
 
+        # ─── Recording indicator + Audio player ───
+        recording_indicator = gr.HTML(value="")
+        recorded_audio = gr.Audio(label="录音回放", type="filepath")
+
         # ─── 10 sentence rows with individual buttons ───
         row_cells = []
         btn_recs = []
@@ -217,7 +225,7 @@ def create_recording_tab():
         prepend get_project_ui_state() + [page] before these."""
         pg = _script_reader.get_page(page, PAGE_SIZE)
         if not pg:
-            return [gr.update()] * (2 + 10*4 + 3)
+            return [gr.update()] * (2 + 1 + 10*4 + 4)
 
         prog, hdr, _, ck, all_met = get_stats(page)
         states = get_row_states(page)
@@ -228,6 +236,14 @@ def create_recording_tab():
         outputs = []
         # progress_html, page_header
         outputs.extend([prog, hdr])
+
+        # Recording indicator
+        if _recorder.is_recording:
+            outputs.append('''<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#FFF0F0;border-radius:6px;border:1px solid #ffccc0;">
+<span style="width:10px;height:10px;background:red;border-radius:50%;animation:recPulse 1s infinite;"></span>
+<span style="font-size:13px;color:#c00;"><b>录音中</b></span></div>''')
+        else:
+            outputs.append("")
 
         # 10 rows: combined_cell(dot+text), rec_btn, play_btn, del_btn
         for i in range(10):
@@ -271,6 +287,7 @@ def create_recording_tab():
                 interactive=all_met,
                 variant="primary" if all_met else "secondary"
             ),
+            None,  # recorded_audio: no change on page refresh
         ])
 
         return outputs
@@ -286,11 +303,13 @@ def create_recording_tab():
         if idx <= 0:
             return get_project_ui_state() + [page] + refresh_page(page)
 
+        audio_path = None
         if _recorder.is_recording:
             result = _recorder.stop_recording()
             if result and result["path"]:
                 _mapping_mgr.update_field(idx, duration_sec=result["duration"],
                                           recorded_at=result.get("recorded_at", ""), confirmed=True)
+                audio_path = result["path"]
                 print(f"[OK] Recording stopped for #{idx}")
         else:
             if AppState.get_training():
@@ -309,7 +328,22 @@ def create_recording_tab():
                 txt = entries[idx].text if idx in entries else ""
                 _mapping_mgr.update(idx, MappingEntry(idx, txt, rel, True, 0, ts))
                 print(f"[OK] Recording started for #{idx}")
-        return get_project_ui_state() + [page] + refresh_page(page)
+        result = get_project_ui_state() + [page] + refresh_page(page)
+        result[-1] = audio_path  # update recorded_audio
+        return result
+
+    def play_wav(path: str):
+        """Play WAV file in a background thread."""
+        def _play():
+            try:
+                with wave.open(path, 'rb') as wf:
+                    data = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
+                    sd.play(data, wf.getframerate())
+                    sd.wait()
+                print(f"[OK] Played: {os.path.basename(path)}")
+            except Exception as e:
+                print(f"[WARN] Playback failed: {e}")
+        threading.Thread(target=_play, daemon=True).start()
 
     def on_play_click(row_idx: int, page: int) -> list:
         """Handle play button click."""
@@ -321,15 +355,19 @@ def create_recording_tab():
             return get_project_ui_state() + [page] + refresh_page(page)
         entries = _mapping_mgr.get_all()
         entry = entries.get(idx)
+        audio_path = None
         if entry and entry.wav_path:
             proj = AppState.get_current_project()
             full = os.path.join(ProjectManager.get_project_dir(proj), entry.wav_path)
             if os.path.exists(full):
-                print(f"[OK] Would play: {full}")
+                play_wav(full)
+                audio_path = full
             else:
                 print(f"[WARN] File missing: {full}")
                 _mapping_mgr.update_field(idx, wav_path="", confirmed=False)
-        return get_project_ui_state() + [page] + refresh_page(page)
+        result = get_project_ui_state() + [page] + refresh_page(page)
+        result[-1] = audio_path  # update recorded_audio
+        return result
 
     def on_del_click(row_idx: int, page: int) -> list:
         """Handle delete button click."""
@@ -416,7 +454,7 @@ def create_recording_tab():
     # ==================== Wire events ====================
 
     project_outs = [project_dropdown, btn_lock_project]
-    partial_out = [current_page, progress_html, page_header]
+    partial_out = [current_page, progress_html, page_header, recording_indicator]
 
     row_out = []
     for i in range(10):
@@ -425,7 +463,7 @@ def create_recording_tab():
         row_out.append(btn_plays[i])
         row_out.append(btn_dels[i])
 
-    all_outputs = project_outs + partial_out + row_out + [page_display, category_check, btn_done]
+    all_outputs = project_outs + partial_out + row_out + [page_display, category_check, btn_done, recorded_audio]
 
     # Project events
     project_dropdown.change(fn=switch_project, inputs=[project_dropdown], outputs=all_outputs)

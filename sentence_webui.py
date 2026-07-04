@@ -232,13 +232,12 @@ def create_app():
             height:26px !important; min-height:26px !important;
             font-size:13px !important; padding:0 4px !important;
         }
-        #recording-tab .gr-dropdown input {
-            height:26px !important; min-height:26px !important;
-            font-size:13px !important;
-        }
         #recording-tab .gr-form {
             gap:2px !important;
         }
+
+        /* ===== Recording animation ===== */
+        @keyframes recPulse { 0%{opacity:1;} 50%{opacity:0.2;} 100%{opacity:1;} }
         """
     ) as app:
 
@@ -293,7 +292,7 @@ def create_app():
                 gr.update(value="\U0001f512" if locked else "\U0001f513",
                           variant="stop" if locked else "secondary"),
             ]
-            # Return: project_ui(2) + current_page(1) + page_values(56)
+            # Return: project_ui(2) + current_page(1) + page_values(47) = 50
             return proj_state + [1] + rec_components["refresh_page"](1)
 
         app.load(
