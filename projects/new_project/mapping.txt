@@ -1,1 +1,0 @@
-idx|text|wav_path|confirmed|duration_sec|recorded_at
